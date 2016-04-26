@@ -26,13 +26,11 @@ MCEND="${RCol}"
 SCRIPT_HOME="$( cd "$( dirname "$0" )" && pwd )"
 PROJECT_HOME="$( cd $SCRIPT_HOME/../.. && pwd )"
 
-DOCKERIMAGE_USER_EVENTS="health-control-room/user-events"
-DOCKERCONTAINER_USER_EVENTS="user-events"
-DOCKERIMAGE_DASHBOARD="health-control-room/dashboard"
-DOCKERCONTAINER_DASHBOARD="dashboard"
-DOCKERIMAGE_MONGODB="health-control-room/mongodb"
+DOCKERIMAGE_RAILS="gumaestri/rails"
+DOCKERCONTAINER_RAILS="rails"
+DOCKERIMAGE_MONGODB="gumaestri/mongodb"
 DOCKERCONTAINER_MONGODB="mongodb"
-DOCKERIMAGE_MYSQL="health-control-room/mysql"
+DOCKERIMAGE_MYSQL="gumaestri/mysql"
 DOCKERCONTAINER_MYSQL="mysql"
 
 #
@@ -40,38 +38,51 @@ DOCKERCONTAINER_MYSQL="mysql"
 #
 function dev (){
 	case "$2" in
-	user-events)
-		echo -e "${MINFO} Starting user-events containers"
+  rails-mysql)
+    echo -e "${MINFO} Starting rails and mysql containers"
+    local code_string='docker run --name '$DOCKERCONTAINER_RAILS' -it
+    --publish 3000:3000 --link '$DOCKERCONTAINER_MONGODB':mongodb --volume
+    '$PROJECT_HOME':/var/apps --entrypoint="/bin/bash" '$DOCKERIMAGE_RAILS
+    echo -e "${MRUNNING}\n${MCSTART}${code_string}${MCEND}"
+    echo -e "${MWARNING} /var/apps is SHARED by a volume with your host. BE
+    AWARE that this can have side effects."
+    echo -e "${MWARNING} Docker Container is uses --entrypoint=\"/bin/bash\"."
+    echo -e "${MCSTART}/rails.sh${MCEND}"
+    echo -e ""
+    ${code_string}
+  ;;
+	rails-mongo)
+		echo -e "${MINFO} Starting rails and mongo containers"
 		start_mongodb
 		sleep 3
 		echo -e "${MINFO} Starting"
-		local code_string='docker run --name '$DOCKERCONTAINER_USER_EVENTS' -it --publish 8080:8080 --publish 3000:3000 --link '$DOCKERCONTAINER_MONGODB':mongodb --volume '$PROJECT_HOME':/var/apps --entrypoint="/bin/bash" '$DOCKERIMAGE_USER_EVENTS
+		local code_string='docker run --name '$DOCKERCONTAINER_RAILS' -it --publish 3000:3000 --link '$DOCKERCONTAINER_MONGODB':mongodb --volume '$PROJECT_HOME':/var/apps --entrypoint="/bin/bash" '$DOCKERIMAGE_RAILS
 		echo -e "${MRUNNING}\n${MCSTART}${code_string}${MCEND}"
 		echo -e "${MWARNING} /var/apps is SHARED by a volume with your host. BE AWARE that this can have side effects."
 		echo -e "${MWARNING} Docker Container is uses --entrypoint=\"/bin/bash\"."
-		echo -e "${MCSTART}/user-events.sh${MCEND}"
-		echo -e "${MCSTART}/user-events-frontend.sh${MCEND}"
+		echo -e "${MCSTART}/rails.sh${MCEND}"
 		echo -e ""
 		${code_string}
 		;;
-	dashboard)
+	rails-mysql-mongo)
 		echo -e "${MINFO} Starting dasboard containers"
 		start_mongodb
 		sleep 3
 		start_mysql
 		sleep 3
 		echo -e "${MINFO} Starting"
-		local code_string='docker run --name '$DOCKERCONTAINER_DASHBOARD' -it --publish 8081:8081 --publish 3001:3001 --link '$DOCKERCONTAINER_MONGODB':mongodb --link '$DOCKERCONTAINER_MYSQL':mysql --volume '$PROJECT_HOME':/var/apps --entrypoint="/bin/bash" '$DOCKERIMAGE_DASHBOARD
+		local code_string='docker run --name '$DOCKERCONTAINER_RAILS' -it
+    --publish 3000:3000 --link '$DOCKERCONTAINER_MONGODB':mongodb --link '$DOCKERCONTAINER_MYSQL':mysql --volume '$PROJECT_HOME':/var/apps --entrypoint="/bin/bash" '$DOCKERIMAGE_RAILS
 		echo -e "${MRUNNING}\n${MCSTART}${code_string}${MCEND}"
 		echo -e "${MWARNING} /var/apps is SHARED by a volume with your host. BE AWARE that this can have side effects."
 		echo -e "${MWARNING} Docker Container is uses --entrypoint=\"/bin/bash\"."
-		echo -e "${MCSTART}/dashboard.sh${MCEND}"
-		echo -e "${MCSTART}/dashboard-frontend.sh${MCEND}"
+		echo -e "${MCSTART}/rails.sh${MCEND}"
 		echo -e ""
 		${code_string}
 		;;
 	*)
-		echo -e "${MWARNING} What do you want to develop? Valid options: user-events, dashboard"
+		echo -e "${MWARNING} What do you want to develop? Valid options:
+    rails-mysql, rails-mongo, rails-mysql-mongo"
 		exit 1
 	esac
 }
@@ -111,47 +122,47 @@ function start (){
 }
 
 function start_user-events (){
-	retval=$( docker_container_check "${DOCKERCONTAINER_USER_EVENTS}" )
+	retval=$( docker_container_check "${DOCKERCONTAINER_RAILS}" )
 	if [ "$retval" == "exited" ]
 	then
-		echo -e "${MINFO} ${DOCKERCONTAINER_USER_EVENTS} existed, trying to restart"
-		docker start $DOCKERCONTAINER_USER_EVENTS
+		echo -e "${MINFO} ${DOCKERCONTAINER_RAILS} existed, trying to restart"
+		docker start $DOCKERCONTAINER_RAILS
 	fi
 
 	if [ "$retval" == "running" ]
 	then
-		echo -e "${MINFO} ${DOCKERCONTAINER_USER_EVENTS} already running, doing nothing"
+		echo -e "${MINFO} ${DOCKERCONTAINER_RAILS} already running, doing nothing"
 	fi
 
 	if [ "$retval" == "" ]
 	then
-		local code_string="docker run --name ${DOCKERCONTAINER_USER_EVENTS} -p 8080:8080 -p 3000:3000 -e RAILS_ENV=production --link ${DOCKERCONTAINER_MONGODB}:mongodb -d ${DOCKERIMAGE_USER_EVENTS}"
+		local code_string="docker run --name ${DOCKERCONTAINER_RAILS} -p 8080:8080 -p 3000:3000 -e RAILS_ENV=production --link ${DOCKERCONTAINER_MONGODB}:mongodb -d ${DOCKERIMAGE_RAILS}"
 		echo -e "${MRUNNING}\n${MCSTART}${code_string}${MCEND}"
 		RAILSENV=$(${code_string})
-		echo -e "${MINFO} Started ${DOCKERCONTAINER_USER_EVENTS} in container $RAILSENV"
+		echo -e "${MINFO} Started ${DOCKERCONTAINER_RAILS} in container $RAILSENV"
 		#wait_for_composer_ready
 	fi
 }
 
 function start_dashboard (){
-	retval=$( docker_container_check "${DOCKERCONTAINER_DASHBOARD}" )
+	retval=$( docker_container_check "${DOCKERCONTAINER_RAILS}" )
 	if [ "$retval" == "exited" ]
 	then
-		echo -e "${MINFO} ${DOCKERCONTAINER_DASHBOARD} existed, trying to restart"
-		docker start $DOCKERCONTAINER_DASHBOARD
+		echo -e "${MINFO} ${DOCKERCONTAINER_RAILS} existed, trying to restart"
+		docker start $DOCKERCONTAINER_RAILS
 	fi
 
 	if [ "$retval" == "running" ]
 	then
-		echo -e "${MINFO} ${DOCKERCONTAINER_DASHBOARD} already running, doing nothing"
+		echo -e "${MINFO} ${DOCKERCONTAINER_RAILS} already running, doing nothing"
 	fi
 
 	if [ "$retval" == "" ]
 	then
-		local code_string="docker run --name ${DOCKERCONTAINER_DASHBOARD} -p 8081:8081 -p 3001:3001 -e RAILS_ENV=production --link ${DOCKERCONTAINER_MONGODB}:mongodb --link ${DOCKERCONTAINER_MYSQL}:mysql -d ${DOCKERIMAGE_DASHBOARD}"
+		local code_string="docker run --name ${DOCKERCONTAINER_RAILS} -p 8081:8081 -p 3001:3001 -e RAILS_ENV=production --link ${DOCKERCONTAINER_MONGODB}:mongodb --link ${DOCKERCONTAINER_MYSQL}:mysql -d ${DOCKERIMAGE_RAILS}"
 		echo -e "${MRUNNING}\n${MCSTART}${code_string}${MCEND}"
 		RAILSENV=$(${code_string})
-		echo -e "${MINFO} Started ${DOCKERCONTAINER_DASHBOARD} in container $RAILSENV"
+		echo -e "${MINFO} Started ${DOCKERCONTAINER_RAILS} in container $RAILSENV"
 		#wait_for_composer_ready
 	fi
 }
@@ -334,7 +345,7 @@ function build_user-events(){
 
 	set -e
 	# actual server build
-	docker build -t $DOCKERIMAGE_USER_EVENTS config/environment/docker/user-events
+	docker build -t $DOCKERIMAGE_RAILS config/environment/docker/user-events
 }
 
 function build_dashboard(){
@@ -358,8 +369,8 @@ function build_dashboard(){
 
 	set -e
 	# actual server build
-	echo -e "docker build -t ${DOCKERIMAGE_DASHBOARD} config/environment/docker/dashboard"
-	docker build -t $DOCKERIMAGE_DASHBOARD config/environment/docker/dashboard
+	echo -e "docker build -t ${DOCKERIMAGE_RAILS} config/environment/docker/dashboard"
+	docker build -t $DOCKERIMAGE_RAILS config/environment/docker/dashboard
 }
 
 function build_mongodb(){
@@ -522,10 +533,10 @@ function killz (){
 	set +e
 	case "$2" in
 	user-events)
-		docker rm -f $DOCKERCONTAINER_USER_EVENTS || echo -e "${MINFO} killing ${DOCKERCONTAINER_USER_EVENTS}"
+		docker rm -f $DOCKERCONTAINER_RAILS || echo -e "${MINFO} killing ${DOCKERCONTAINER_RAILS}"
 		;;
 	dashboard)
-		docker rm -f $DOCKERCONTAINER_DASHBOARD || echo -e "${MINFO} killing ${DOCKERCONTAINER_DASHBOARD}"
+		docker rm -f $DOCKERCONTAINER_RAILS || echo -e "${MINFO} killing ${DOCKERCONTAINER_RAILS}"
 		;;
 	mongodb)
 		docker rm -f $DOCKERCONTAINER_MONGODB || echo -e "${MINFO} killing ${DOCKERCONTAINER_MONGODB}"
@@ -534,8 +545,8 @@ function killz (){
 		docker rm -f $DOCKERCONTAINER_MYSQL || echo -e "${MINFO} killing ${DOCKERCONTAINER_MYSQL}"
 		;;
 	all)
-		docker rm -f $DOCKERCONTAINER_USER_EVENTS || echo -e "${MINFO} killing ${DOCKERCONTAINER_USER_EVENTS}"
-		docker rm -f $DOCKERCONTAINER_DASHBOARD || echo -e "${MINFO} killing ${DOCKERCONTAINER_DASHBOARD}"
+		docker rm -f $DOCKERCONTAINER_RAILS || echo -e "${MINFO} killing ${DOCKERCONTAINER_RAILS}"
+		docker rm -f $DOCKERCONTAINER_RAILS || echo -e "${MINFO} killing ${DOCKERCONTAINER_RAILS}"
 		docker rm -f $DOCKERCONTAINER_MONGODB || echo -e "${MINFO} killing ${DOCKERCONTAINER_MONGODB}"
 		docker rm -f $DOCKERCONTAINER_MYSQL || echo -e "${MINFO} killing ${DOCKERCONTAINER_MYSQL}"
 		;;
