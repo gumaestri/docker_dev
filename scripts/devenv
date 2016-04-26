@@ -38,10 +38,12 @@ DOCKERCONTAINER_MYSQL="mysql"
 #
 function dev (){
 	case "$2" in
-  rails-mysql)
+  rails-mysql) 
     echo -e "${MINFO} Starting rails and mysql containers"
+    start_mysql
+    sleep 3
     local code_string='docker run --name '$DOCKERCONTAINER_RAILS' -it
-    --publish 3000:3000 --link '$DOCKERCONTAINER_MONGODB':mongodb --volume
+    --publish 3000:3000 --link '$DOCKERCONTAINER_MYSQL':mysql --volume
     '$PROJECT_HOME':/var/apps --entrypoint="/bin/bash" '$DOCKERIMAGE_RAILS
     echo -e "${MRUNNING}\n${MCSTART}${code_string}${MCEND}"
     echo -e "${MWARNING} /var/apps is SHARED by a volume with your host. BE
@@ -301,13 +303,9 @@ function build (){
 	echo -e "${MINFO} Workdir is:" + $(pwd)
 
 	case "$2" in
-	user-events)
+	rails)
 		echo -e "${MINFO} Building server container"
-		build_user-events @@
-		;;
-	dashboard)
-		echo -e "${MINFO} Building server container"
-		build_dashboard @@
+		build_rails @@
 		;;
 	mysql)
 		echo -e "${MINFO} Building mysql container"
@@ -318,59 +316,35 @@ function build (){
 		build_mongodb @@
 		;;
 	*)
-		echo -e "${MINFO} Valid inutpt: user-events, dashboard, mysql, mongodb"
+		echo -e "${MINFO} Valid inutpt: rails, mysql, mongodb"
 		RETVAL=1
 	esac
 	echo -e "${MINFO} Building Docker Images done"
 }
 
-function build_user-events(){
+function build_rails(){
 	#
 	# copy dependencies for caching
 	#
 	set +e
-	mkdir -p config/environment/docker/user-events/cache_gems
-	cmp user-events/Gemfile config/environment/docker/user-events/cache_gems/Gemfile || cp -Rvf user-events/Gemfile config/environment/docker/user-events/cache_gems/Gemfile
-	cmp user-events/Gemfile.lock config/environment/docker/user-events/cache_gems/Gemfile.lock || cp -Rvf user-events/Gemfile.lock config/environment/docker/user-events/cache_gems/Gemfile.lock
+	mkdir -p config/environment/docker/rails/cache_gems
+	cmp user-events/Gemfile config/environment/docker/rails/cache_gems/Gemfile ||
+    cp -Rvf user-events/Gemfile config/environment/docker/rails/cache_gems/Gemfile
+	cmp user-events/Gemfile.lock
+  config/environment/docker/rails/cache_gems/Gemfile.lock || cp -Rvf
+  user-events/Gemfile.lock config/environment/docker/rails/cache_gems/Gemfile.lock
 	
-	mkdir -p config/environment/docker/user-events/cache_npm
-	cmp user-events-frontend/package.json config/environment/docker/user-events/cache_npm/package.json || cp -Rvf user-events-frontend/package.json config/environment/docker/user-events/cache_npm/package.json
-
 	#
 	#copy the code
 	#
-	rm -fr config/environment/docker/server/cache_user-events;rsync -av user-events/ config/environment/docker/user-events/cache_user-events --exclude attachments --exclude bower_components --exclude tmp
-	rm -fr config/environment/docker/server/cache_user-events-frontend;rsync -av user-events-frontend/ config/environment/docker/user-events/cache_user-events-frontend --exclude attachments --exclude bower_components --exclude tmp
+	rm -fr config/environment/docker/server/cache_user-events;rsync -av
+  user-events/ config/environment/docker/rails/cache_user-events --exclude attachments --exclude bower_components --exclude tmp
 	
 
 	set -e
 	# actual server build
-	docker build -t $DOCKERIMAGE_RAILS config/environment/docker/user-events
-}
-
-function build_dashboard(){
-	#
-	# copy dependencies for caching
-	#
-	set +e
-	mkdir -p config/environment/docker/dashboard/cache_gems
-	cmp dev/apps/dashboard/Gemfile config/environment/docker/dashboard/cache_gems/Gemfile || cp -Rvf dev/apps/dashboard/Gemfile config/environment/docker/dashboard/cache_gems/Gemfile
-	cmp dev/apps/dashboard/Gemfile.lock config/environment/docker/dashboard/cache_gems/Gemfile.lock || cp -Rvf dev/apps/dashboard/Gemfile.lock config/environment/docker/dashboard/cache_gems/Gemfile.lock
-	
-	mkdir -p config/environment/docker/dashboard/cache_npm
-	cmp dev/apps/dashboard-frontend/package.json config/environment/docker/dashboard/cache_npm/package.json || cp -Rvf dev/apps/dashboard-frontend/package.json config/environment/docker/dashboard/cache_npm/package.json
-
-	#
-	#copy the code
-	#
-	rm -fr config/environment/docker/server/cache_dashboard;rsync -av dev/apps/dashboard/ config/environment/docker/dashboard/cache_dashboard --exclude attachments --exclude bower_components --exclude tmp
-	rm -fr config/environment/docker/server/cache_dashboard-frontend;rsync -av dev/apps/dashboard-frontend/ config/environment/docker/dashboard/cache_dashboard-frontend --exclude attachments --exclude bower_components --exclude tmp
-	
-
-	set -e
-	# actual server build
-	echo -e "docker build -t ${DOCKERIMAGE_RAILS} config/environment/docker/dashboard"
-	docker build -t $DOCKERIMAGE_RAILS config/environment/docker/dashboard
+	echo -e "docker build -t ${DOCKERIMAGE_RAILS} config/environment/docker/rails"
+	docker build -t $DOCKERIMAGE_RAILS config/environment/docker/rails
 }
 
 function build_mongodb(){
@@ -532,10 +506,7 @@ function filteredPrint (){
 function killz (){
 	set +e
 	case "$2" in
-	user-events)
-		docker rm -f $DOCKERCONTAINER_RAILS || echo -e "${MINFO} killing ${DOCKERCONTAINER_RAILS}"
-		;;
-	dashboard)
+	rails)
 		docker rm -f $DOCKERCONTAINER_RAILS || echo -e "${MINFO} killing ${DOCKERCONTAINER_RAILS}"
 		;;
 	mongodb)
@@ -546,12 +517,11 @@ function killz (){
 		;;
 	all)
 		docker rm -f $DOCKERCONTAINER_RAILS || echo -e "${MINFO} killing ${DOCKERCONTAINER_RAILS}"
-		docker rm -f $DOCKERCONTAINER_RAILS || echo -e "${MINFO} killing ${DOCKERCONTAINER_RAILS}"
 		docker rm -f $DOCKERCONTAINER_MONGODB || echo -e "${MINFO} killing ${DOCKERCONTAINER_MONGODB}"
 		docker rm -f $DOCKERCONTAINER_MYSQL || echo -e "${MINFO} killing ${DOCKERCONTAINER_MYSQL}"
 		;;
 	*)
-		echo "Valid input: user-events, dashboard, mongodb,mysql, all"
+		echo "Valid input: rails, mongodb,mysql, all"
 	esac
 	set -e
 }
