@@ -1,0 +1,95 @@
+#!/bin/bash
+
+#fail fast, fail hard
+set -e
+
+RCol='\e[0m'
+Bla='\e[0;30m'
+Red='\e[0;31m'
+Gre='\e[0;32m'
+Yel='\e[0;33m'
+Blu='\e[0;34m'
+Pur='\e[0;35m'
+Cya='\e[0;36m'
+Whi='\e[0;37m'
+MINFO="${Yel}INFO:${RCol}"
+MWARNING="${Red}WARNING:${RCol}"
+MRUNNING="${Blu}RUNNING:${RCol}"
+MCSTART="${Gre}"
+MCEND="${RCol}"
+
+
+SCRIPT_HOME="$( cd "$( dirname "$0" )" && pwd )"
+PROJECT_HOME="$( cd $SCRIPT_HOME/.. && pwd )"
+
+
+. $SCRIPT_HOME/lib-devenv/lib-devenv-build.sh --source-only
+
+. $SCRIPT_HOME/lib-devenv/lib-devenv-start.sh --source-only
+
+. $SCRIPT_HOME/lib-devenv/lib-devenv-dev.sh --source-only
+
+. $SCRIPT_HOME/lib-devenv/lib-devenv-test.sh --source-only
+
+. $SCRIPT_HOME/lib-devenv/lib-devenv-jenkins.sh --source-only
+
+. $SCRIPT_HOME/lib-devenv/lib-devenv-logs.sh --source-only
+
+. $SCRIPT_HOME/lib-devenv/lib-devenv-package.sh --source-only
+
+. $SCRIPT_HOME/lib-devenv/lib-devenv-helper.sh --source-only
+
+. $SCRIPT_HOME/lib-devenv/lib-devenv-kill.sh --source-only
+
+. $SCRIPT_HOME/lib-devenv/lib-devenv-config.sh --source-only
+
+setVerbose $@
+
+function helptext(){
+	echo $"Usage of $0: {start|package|logs|stop|clean|kill|dev|jenkins|build}"
+}
+
+
+echo $TEST
+# forwarding other args($@) to functions just in case
+case "$1" in
+	start)
+		start $@
+		;;
+	jenkins)
+		jenkins $@
+		;;
+	stop)
+		stop $@
+		;;
+	kill)
+		killz $@
+		;;
+	logs)
+		logs $@
+		;;
+	build)
+		build $@
+		;;
+	test)
+		test $@
+		;;
+	testscript)
+		testscript $@
+		;;
+	clean)
+		clean $@
+		;;
+	package)
+		package $@
+		;;
+	dev)
+		dev $@
+		;;
+	help | man | "")
+		helptext
+		;;
+	*)
+		helptext
+		RETVAL=1
+esac

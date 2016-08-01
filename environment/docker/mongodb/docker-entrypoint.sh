@@ -1,21 +1,25 @@
 #!/bin/bash
 set -e
 
-if [ "${1:0:1}" = '-' ]; then
-	set -- mongod "$@"
+
+stop_handler() {
+    start-stop-daemon --stop --pidfile /var/run/mongodb.pid --retry 4
+    exit 0
+}
+trap 'echo "SIGTERM recieved";stop_handler' SIGTERM
+
+mkdir -p /data/configdb /data/dbs
+chown -R mongodb /data/configdb /data/dbs
+start-stop-daemon --start --quiet --make-pidfile \
+            --pidfile /var/run/mongodb.pid --chuid mongodb:mongodb \
+            --exec "/usr/bin/mongod" &
+pid="$!"
+
+echo "start-stop-daemon PID=${pid}"
+
+#password init
+if [ ! -f /data/db/.mongodb_password_set ]; then
+    /set_mongodb_password.sh
 fi
 
-# allow the container to be started with `--user`
-if [ "$1" = 'mongod' -a "$(id -u)" = '0' ]; then
-	chown -R mongodb /data/configdb /data/db
-	exec gosu mongodb "$BASH_SOURCE" "$@"
-fi
-
-if [ "$1" = 'mongod' ]; then
-	numa='numactl --interleave=all'
-	if $numa true &> /dev/null; then
-		set -- $numa "$@"
-	fi
-fi
-
-exec "$@"
+wait ${pid}
